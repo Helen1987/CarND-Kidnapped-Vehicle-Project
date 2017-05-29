@@ -27,14 +27,17 @@ class ParticleFilter {
 	// Number of particles to draw
 	int num_particles; 
 	
-	
+  // value to compare with zero
+  double const negligible = 0.00001;
 	
 	// Flag, if filter is initialized
 	bool is_initialized;
 	
 	// Vector of weights of all particles
 	std::vector<double> weights;
-	
+
+  // to generate noise
+  default_random_engine gen;
 public:
 	
 	// Set of current particles
