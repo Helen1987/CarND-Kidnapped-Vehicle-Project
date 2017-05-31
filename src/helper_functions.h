@@ -65,6 +65,12 @@ inline double * getError(double gt_x, double gt_y, double gt_theta, double pf_x,
 	return error;
 }
 
+inline double norm_probability(double x, double y, double mx, double my, double sigma_x, double sigma_y) {
+  double x_part = (x - mx)*(x - mx) / (2 * sigma_x*sigma_x);
+  double y_part = (y - my)*(y - my) / (2 * sigma_y*sigma_y);
+  return exp(-(x_part + y_part)) / (2 * M_PI*sigma_x*sigma_y);
+}
+
 /* Reads map data from a file.
  * @param filename Name of file containing map data.
  * @output True if opening and reading file was successful

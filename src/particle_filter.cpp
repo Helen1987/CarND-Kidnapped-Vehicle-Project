@@ -64,11 +64,23 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
   }
 }
 
-void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {
+void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted, vector<LandmarkObs>& observations) {
 	// TODO: Find the predicted measurement that is closest to each observed measurement and assign the 
 	//   observed measurement to this particular landmark.
-	// NOTE: this method will NOT be called by the grading code. But you will probably find it useful to 
-	//   implement this method and use it as a helper during the updateWeights phase.
+  for (auto& predicted_landmark : predicted) {
+    double min_dist = dist(predicted_landmark.x, predicted_landmark.y, observations[0].x, observations[0].y);
+    int min_dist_id = observations[0].id;
+
+    for (auto& landmark: observations) {
+      double distance = dist(predicted_landmark.x, predicted_landmark.y, landmark.x, landmark.y);
+      if (distance < min_dist) {
+        min_dist = distance;
+        min_dist_id = landmark.id;
+      }
+    }
+
+    predicted_landmark.id = min_dist_id;
+  }
 
 }
 
@@ -78,13 +90,48 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   more about this distribution here: https://en.wikipedia.org/wiki/Multivariate_normal_distribution
 	// NOTE: The observations are given in the VEHICLE'S coordinate system. Your particles are located
 	//   according to the MAP'S coordinate system. You will need to transform between the two systems.
-	//   Keep in mind that this transformation requires both rotation AND translation (but no scaling).
-	//   The following is a good resource for the theory:
-	//   https://www.willamette.edu/~gorr/classes/GeneralGraphics/Transforms/transforms2d.htm
-	//   and the following is a good resource for the actual equation to implement (look at equation 
-	//   3.33. Note that you'll need to switch the minus sign in that equation to a plus to account 
-	//   for the fact that the map's y-axis actually points downwards.)
-	//   http://planning.cs.uiuc.edu/node99.html
+
+  for (int i = 0; i < particles.size(); ++i) {
+    Particle particle = particles[i];
+    vector<LandmarkObs> predicted;
+
+    // transplate observation into map's coordinate system
+    for (auto& observation : observations) {
+      LandmarkObs translated_observation;
+
+      translated_observation.x = observation.x*cos(particle.theta) - observation.y*sin(particle.theta) + particle.x;
+      translated_observation.y = observation.x*sin(particle.theta) + observation.y*cos(particle.theta) + particle.y;
+
+      predicted.push_back(translated_observation);
+    }
+
+    // choose landmarks which are inside sensor range
+    vector<LandmarkObs> landmarks_in_sensor_range;
+    for (auto& landmark: map_landmarks.landmark_list) {
+      if ((std::abs(landmark.x_f - particle.x) < sensor_range) &&
+        (std::abs(landmark.y_f - particle.y) < sensor_range)) {
+
+        landmarks_in_sensor_range.push_back(LandmarkObs{
+          landmark.id_i,
+          landmark.x_f,
+          landmark.y_f
+        });
+      }
+    }
+
+    // find correspondence between observations and landmarks
+    dataAssociation(predicted, landmarks_in_sensor_range);
+
+    // update particle weight
+    for (auto& observation : predicted) {
+      auto corresponding_landmark = map_landmarks.landmark_list[observation.id - 1];
+
+      weights[i] *= norm_probability(observation.x, observation.y,
+        corresponding_landmark.x_f, corresponding_landmark.y_f,
+        std_landmark[0], std_landmark[1]);
+    }
+
+  }
 }
 
 void ParticleFilter::resample() {
