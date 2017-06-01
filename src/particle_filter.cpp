@@ -17,7 +17,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	// TODO: Set the number of particles. Initialize all particles to first position (based on estimates of 
 	//   x, y, theta and their uncertainties from GPS) and all weights to 1. 
 	// Add random Gaussian noise to each particle.
-  num_particles = 500;
+  num_particles = 100;
   default_random_engine gen;
 
   // This line creates a normal (Gaussian) distribution for x.
@@ -92,7 +92,9 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   more about this distribution here: https://en.wikipedia.org/wiki/Multivariate_normal_distribution
 	// NOTE: The observations are given in the VEHICLE'S coordinate system. Your particles are located
 	//   according to the MAP'S coordinate system. You will need to transform between the two systems.
-
+	
+  // update particle weight
+  weights.clear();
   for (auto& particle: particles) {
     vector<LandmarkObs> predicted;
 
@@ -123,8 +125,6 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     // find correspondence between observations and landmarks
     dataAssociation(predicted, landmarks_in_sensor_range);
 
-    // update particle weight
-    weights.clear();
 	particle.weight = 1;
     for (auto& observation : predicted) {
       auto corresponding_landmark = map_landmarks.landmark_list[observation.id - 1];
@@ -133,9 +133,9 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
         corresponding_landmark.x_f, corresponding_landmark.y_f,
         std_landmark[0], std_landmark[1]);
 	  particle.weight *= (probability > negligible) ? probability : negligible;
-      weights.push_back(particle.weight);
+      
     }
-
+	weights.push_back(particle.weight);
   }
 }
 
