@@ -7,6 +7,8 @@ project(PARTICLE_FILTER)
 set(SRCS src/main.cpp src/particle_filter.cpp)
 set_source_files_properties(${SRCS} PROPERTIES COMPILE_FLAGS -std=c++0x)
 
+set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR})
+
 # Create the executable
 add_executable(particle_filter ${SRCS})
 

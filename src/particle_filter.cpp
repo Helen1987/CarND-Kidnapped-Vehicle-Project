@@ -9,7 +9,6 @@
 #include <algorithm>
 #include <iostream>
 #include <numeric>
-#include <math.h> 
 
 #include "particle_filter.h"
 using namespace std;
@@ -18,7 +17,8 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	// TODO: Set the number of particles. Initialize all particles to first position (based on estimates of 
 	//   x, y, theta and their uncertainties from GPS) and all weights to 1. 
 	// Add random Gaussian noise to each particle.
-  num_particles = 100;
+  num_particles = 500;
+  default_random_engine gen;
 
   // This line creates a normal (Gaussian) distribution for x.
   normal_distribution<double> dist_x(x, std[0]);
@@ -37,10 +37,12 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
     particles.push_back(new_particle);
   }
 
+  is_initialized = true;
 }
 
 void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
 	// TODO: Add measurements to each particle and add random Gaussian noise.
+  default_random_engine gen;
 
   normal_distribution<double> N_x_noise(0, std_pos[0]);
   normal_distribution<double> N_y_noise(0, std_pos[1]);
@@ -64,7 +66,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
   }
 }
 
-void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted, vector<LandmarkObs>& observations) {
+void ParticleFilter::dataAssociation(vector<LandmarkObs>& predicted, vector<LandmarkObs> observations) {
 	// TODO: Find the predicted measurement that is closest to each observed measurement and assign the 
 	//   observed measurement to this particular landmark.
   for (auto& predicted_landmark : predicted) {
@@ -91,8 +93,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	// NOTE: The observations are given in the VEHICLE'S coordinate system. Your particles are located
 	//   according to the MAP'S coordinate system. You will need to transform between the two systems.
 
-  for (int i = 0; i < particles.size(); ++i) {
-    Particle particle = particles[i];
+  for (auto& particle: particles) {
     vector<LandmarkObs> predicted;
 
     // transplate observation into map's coordinate system
@@ -123,12 +124,16 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     dataAssociation(predicted, landmarks_in_sensor_range);
 
     // update particle weight
+    weights.clear();
+	particle.weight = 1;
     for (auto& observation : predicted) {
       auto corresponding_landmark = map_landmarks.landmark_list[observation.id - 1];
 
-      weights[i] *= norm_probability(observation.x, observation.y,
+	  double probability = norm_probability(observation.x, observation.y,
         corresponding_landmark.x_f, corresponding_landmark.y_f,
         std_landmark[0], std_landmark[1]);
+	  particle.weight *= (probability > negligible) ? probability : negligible;
+      weights.push_back(particle.weight);
     }
 
   }
@@ -138,7 +143,17 @@ void ParticleFilter::resample() {
 	// TODO: Resample particles with replacement with probability proportional to their weight. 
 	// NOTE: You may find std::discrete_distribution helpful here.
 	//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
+  vector<Particle> survived_particles;
 
+  random_device rd;
+  mt19937 dist_gen(rd());
+  discrete_distribution<> d(weights.begin(), weights.end());
+  for (int n = 0; n < particles.size(); ++n) {
+    auto survived_particle = particles[d(dist_gen)];
+    survived_particles.push_back(survived_particle);
+  }
+
+  particles = survived_particles;
 }
 
 void ParticleFilter::write(std::string filename) {
